@@ -45,6 +45,11 @@ public:
 	void refresh();
 	bool remove(const QModelIndex &index);
 
+	static QString hashPassword(const QString &password);
+	static bool verifyPassword(const QString &password, const QString &hashedPassword);
+	bool saveSecure();
+	static User* authenticateSecure(const QString &username, const QString &password);
+
 private:
 	User(int UserID,QString Name,QString UserName,QString Password,int LanguageID,int ContactID,QString CreatedOn,QString EditedOn);	static User* p_instance;
 	bool setName(int UserID, const QString &Name);

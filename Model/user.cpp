@@ -6,6 +6,8 @@
 **************************************************************************/
 #include "user.h"
 #include "erpmodel.h"
+#include <QCryptographicHash>
+#include <QDateTime>
 
 User::User()
  : QSqlRelationalTableModel(){
@@ -55,7 +57,7 @@ QString query =
 "Name VARCHAR(40) NOT NULL, "
 " KEY(Name),"
 "UserName VARCHAR(40) NOT NULL, "
-"Password VARCHAR(40) NOT NULL, "
+"Password VARCHAR(255) NOT NULL, "
 "LanguageID INT NOT NULL, "
 "FOREIGN KEY (LanguageID) REFERENCES Language(LanguageID)  ON DELETE CASCADE,"
 "ContactID INT NOT NULL, "
@@ -64,7 +66,7 @@ QString query =
 "EditedOn VARCHAR(40) NOT NULL, KEY(EditedOn) )" ;
 
 QList<QPair<QString,QString> >variables;
-variables.append(qMakePair(QString(" INT"),QString("UserID")));variables.append(qMakePair(QString(" VARCHAR(40)"),QString("Name")));variables.append(qMakePair(QString(" VARCHAR(40)"),QString("UserName")));variables.append(qMakePair(QString(" VARCHAR(40)"),QString("Password")));variables.append(qMakePair(QString(" INT"),QString("LanguageID")));variables.append(qMakePair(QString(" INT"),QString("ContactID")));variables.append(qMakePair(QString(" VARCHAR(40)"),QString("CreatedOn")));variables.append(qMakePair(QString(" VARCHAR(40)"),QString("EditedOn")));ErpModel::GetInstance()->createTable(table,query,variables);
+variables.append(qMakePair(QString(" INT"),QString("UserID")));variables.append(qMakePair(QString(" VARCHAR(40)"),QString("Name")));variables.append(qMakePair(QString(" VARCHAR(40)"),QString("UserName")));variables.append(qMakePair(QString(" VARCHAR(255)"),QString("Password")));variables.append(qMakePair(QString(" INT"),QString("LanguageID")));variables.append(qMakePair(QString(" INT"),QString("ContactID")));variables.append(qMakePair(QString(" VARCHAR(40)"),QString("CreatedOn")));variables.append(qMakePair(QString(" VARCHAR(40)"),QString("EditedOn")));ErpModel::GetInstance()->createTable(table,query,variables);
 return true;
 }
 User* User::p_instance = 0;
@@ -349,5 +351,98 @@ query.addBindValue(UserID);
 if( !query.exec() )
 qDebug() << query.lastError().text();
 return true;
+}
+
+QString User::hashPassword(const QString &password) {
+	QByteArray passwordData = password.toUtf8();
+	QByteArray hash = QCryptographicHash::hash(passwordData, QCryptographicHash::Sha256);
+	QString salt = QDateTime::currentDateTime().toString(Qt::ISODate);
+	QByteArray saltedPassword = (password + salt).toUtf8();
+	QByteArray saltedHash = QCryptographicHash::hash(saltedPassword, QCryptographicHash::Sha256);
+	return salt + ":" + saltedHash.toHex();
+}
+
+bool User::verifyPassword(const QString &password, const QString &hashedPassword) {
+	QStringList parts = hashedPassword.split(":");
+	if(parts.length() != 2) {
+		return password == hashedPassword;
+	}
+
+	QString salt = parts[0];
+	QString hash = parts[1];
+	QByteArray saltedPassword = (password + salt).toUtf8();
+	QByteArray computedHash = QCryptographicHash::hash(saltedPassword, QCryptographicHash::Sha256);
+
+	return QString(computedHash.toHex()) == hash;
+}
+
+bool User::saveSecure() {
+	this->EditedOn = QDate::currentDate().toString();
+
+	if(UserID == 0) {
+		this->CreatedOn = QDate::currentDate().toString();
+		QString hashedPassword = hashPassword(this->Password);
+
+		QVariantList values;
+		values << Name << UserName << hashedPassword << LanguageID << ContactID << CreatedOn << EditedOn;
+
+		QSqlQuery insertQuery = ErpModel::GetInstance()->execPreparedQuery(
+			"INSERT INTO User (Name, UserName, Password, LanguageID, ContactID, CreatedOn, EditedOn) "
+			"VALUES (?, ?, ?, ?, ?, ?, ?)",
+			values
+		);
+
+		QVariantList selectValues;
+		selectValues << UserName << EditedOn;
+		QSqlQuery query = ErpModel::GetInstance()->execPreparedQuery(
+			"SELECT UserID FROM User WHERE UserName = ? AND EditedOn = ?",
+			selectValues
+		);
+
+		while (query.next()) {
+			if(query.value(0).toInt() != 0){
+				this->UserID = query.value(0).toInt();
+			}
+		}
+	} else {
+		QString hashedPassword = this->Password;
+		if(!this->Password.contains(":")) {
+			hashedPassword = hashPassword(this->Password);
+		}
+
+		QVariantList values;
+		values << Name << UserName << hashedPassword << LanguageID << ContactID << CreatedOn << EditedOn << UserID;
+
+		ErpModel::GetInstance()->execPreparedQuery(
+			"UPDATE User SET Name = ?, UserName = ?, Password = ?, LanguageID = ?, "
+			"ContactID = ?, CreatedOn = ?, EditedOn = ? WHERE UserID = ?",
+			values
+		);
+	}
+
+	return true;
+}
+
+User* User::authenticateSecure(const QString &username, const QString &password) {
+	QVariantList values;
+	values << username;
+
+	QSqlQuery query = ErpModel::GetInstance()->execPreparedQuery(
+		"SELECT * FROM User WHERE UserName = ?",
+		values
+	);
+
+	while (query.next()) {
+		QString hashedPassword = query.value(3).toString();
+		if(verifyPassword(password, hashedPassword)) {
+			return new User(
+				query.value(0).toInt(), query.value(1).toString(), query.value(2).toString(),
+				query.value(3).toString(), query.value(4).toInt(), query.value(5).toInt(),
+				query.value(6).toString(), query.value(7).toString()
+			);
+		}
+	}
+
+	return nullptr;
 }
 

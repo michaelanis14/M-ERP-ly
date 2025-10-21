@@ -23,8 +23,11 @@ public:
 	QList<Access*> UserAccessList;
 	static ErpModel* GetInstance();
 	QSqlQuery qeryExec(QString q);
+	QSqlQuery execPreparedQuery(const QString &queryStr, const QVariantList &bindValues);
+	QSqlQuery execPreparedQuery(const QString &queryStr, const QMap<QString, QVariant> &bindValues);
 	bool createTable(QString table,QString query,QList<QPair<QString,QString> >variables);
 	bool init();
+	bool ensureConnection();
 private:
 	static ErpModel* p_instance;
 };

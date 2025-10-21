@@ -127,10 +127,20 @@ ErpModel* ErpModel::GetInstance() {
 	return p_instance;
 }
 
+bool ErpModel::ensureConnection(){
+	if (!db.isOpen()) {
+		if (!db.open()) {
+			qDebug() << "Failed to open database:" << db.lastError().text();
+			return false;
+		}
+	}
+	return true;
+}
+
 QSqlQuery ErpModel::qeryExec(QString q){
 	//qDebug() << q;
 	QDateTime startTime = QDateTime::currentDateTime();
-	if(db.open())   {
+	if(ensureConnection())   {
 
 		QSqlQuery query(db);
 		query.prepare(q);
@@ -138,7 +148,6 @@ QSqlQuery ErpModel::qeryExec(QString q){
 			QMessageBox::warning(0,"BataBase Issue",query.lastError().text() + query.lastQuery());
 		//else
 		//	qDebug() << q +"Exec: " +QString::number(QDateTime::currentDateTime().toMSecsSinceEpoch() - startTime.toMSecsSinceEpoch()) +"ms";
-		db.close();
 		return query;
 	}
 	else    {
@@ -152,9 +161,55 @@ QSqlQuery ErpModel::qeryExec(QString q){
 	}
 }
 
+QSqlQuery ErpModel::execPreparedQuery(const QString &queryStr, const QVariantList &bindValues){
+	if(!ensureConnection()) {
+		QSqlQuery emptyQuery;
+		return emptyQuery;
+	}
+
+	QSqlQuery query(db);
+	query.prepare(queryStr);
+
+	for(int i = 0; i < bindValues.count(); i++){
+		query.bindValue(i, bindValues.at(i));
+	}
+
+	if(!query.exec()){
+		QMessageBox::warning(0, "Database Issue", query.lastError().text() + "\nQuery: " + query.lastQuery());
+		qDebug() << "Query failed:" << query.lastError().text();
+		qDebug() << "Query was:" << queryStr;
+	}
+
+	return query;
+}
+
+QSqlQuery ErpModel::execPreparedQuery(const QString &queryStr, const QMap<QString, QVariant> &bindValues){
+	if(!ensureConnection()) {
+		QSqlQuery emptyQuery;
+		return emptyQuery;
+	}
+
+	QSqlQuery query(db);
+	query.prepare(queryStr);
+
+	QMapIterator<QString, QVariant> i(bindValues);
+	while (i.hasNext()) {
+		i.next();
+		query.bindValue(i.key(), i.value());
+	}
+
+	if(!query.exec()){
+		QMessageBox::warning(0, "Database Issue", query.lastError().text() + "\nQuery: " + query.lastQuery());
+		qDebug() << "Query failed:" << query.lastError().text();
+		qDebug() << "Query was:" << queryStr;
+	}
+
+	return query;
+}
+
 bool ErpModel::createTable(QString table,QString query,QList<QPair<QString,QString> >variables){
 
-	if(db.open())   {
+	if(ensureConnection())   {
 		QStringList tableList = ErpModel::GetInstance()->db.tables();
 
 
@@ -218,7 +273,6 @@ bool ErpModel::createTable(QString table,QString query,QList<QPair<QString,QStri
 				break;
 			}
 		}
-		db.close();
 		if(tableExists == false)
 		{
 			ErpModel::GetInstance()->qeryExec("CREATE TABLE " + table + query );

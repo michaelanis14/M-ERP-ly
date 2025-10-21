@@ -501,3 +501,170 @@ qDebug() << query.lastError().text();
 return true;
 }
 
+bool Contact::saveSecure() {
+	this->EditedOn = QDate::currentDate().toString();
+
+	if(ContactID == 0) {
+		this->CreatedOn = QDate::currentDate().toString();
+
+		QVariantList values;
+		values << Name << Salutation << BirthdateOrDateOfFoundation.toString("yyyy-MM-dd")
+		       << ContactTypeID << ContactClassID << Serial << Address << PostalCode
+		       << City << CountryID << ContactStatusID << Website << TaxNumber
+		       << CreatedOn << EditedOn;
+
+		QSqlQuery insertQuery = ErpModel::GetInstance()->execPreparedQuery(
+			"INSERT INTO Contact (Name, Salutation, BirthdateOrDateOfFoundation, ContactTypeID, "
+			"ContactClassID, Serial, Address, PostalCode, City, CountryID, ContactStatusID, "
+			"Website, TaxNumber, CreatedOn, EditedOn) "
+			"VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+			values
+		);
+
+		QVariantList selectValues;
+		selectValues << Name << EditedOn;
+		QSqlQuery query = ErpModel::GetInstance()->execPreparedQuery(
+			"SELECT ContactID FROM Contact WHERE Name = ? AND EditedOn = ?",
+			selectValues
+		);
+
+		while (query.next()) {
+			if(query.value(0).toInt() != 0){
+				this->ContactID = query.value(0).toInt();
+			}
+		}
+
+		if(ContactTypeID == 1 || ContactTypeID == 3){
+			Project * MainProject = new Project(
+				QObject::tr("Main Project"), 1, this->ContactID,
+				QDate::currentDate(), QDate::currentDate().addYears(10),
+				true, QObject::tr("No Notes"),
+				QDate::currentDate().toString("yyyy-MM-dd"),
+				QDate::currentDate().toString("yyyy-MM-dd")
+			);
+			MainProject->save();
+		}
+	} else {
+		QVariantList values;
+		values << Name << Salutation << BirthdateOrDateOfFoundation.toString("yyyy-MM-dd")
+		       << ContactTypeID << ContactClassID << Serial << Address << PostalCode
+		       << City << CountryID << ContactStatusID << Website << TaxNumber
+		       << CreatedOn << EditedOn << ContactID;
+
+		ErpModel::GetInstance()->execPreparedQuery(
+			"UPDATE Contact SET Name = ?, Salutation = ?, BirthdateOrDateOfFoundation = ?, "
+			"ContactTypeID = ?, ContactClassID = ?, Serial = ?, Address = ?, PostalCode = ?, "
+			"City = ?, CountryID = ?, ContactStatusID = ?, Website = ?, TaxNumber = ?, "
+			"CreatedOn = ?, EditedOn = ? WHERE ContactID = ?",
+			values
+		);
+	}
+
+	return true;
+}
+
+Contact* Contact::GetSecure(int id) {
+	Contact* contact = new Contact();
+	if(id != 0) {
+		QVariantList values;
+		values << id;
+
+		QSqlQuery query = ErpModel::GetInstance()->execPreparedQuery(
+			"SELECT * FROM Contact WHERE ContactID = ? ORDER BY ContactID ASC",
+			values
+		);
+
+		while (query.next()) {
+			contact = new Contact(
+				query.value(0).toInt(), query.value(1).toString(), query.value(2).toString(),
+				query.value(3).toDate(), query.value(4).toInt(), query.value(5).toInt(),
+				query.value(6).toInt(), query.value(7).toString(), query.value(8).toString(),
+				query.value(9).toString(), query.value(10).toInt(), query.value(11).toInt(),
+				query.value(12).toString(), query.value(13).toString(),
+				query.value(14).toString(), query.value(15).toString()
+			);
+		}
+
+		QVariantList idValue;
+		idValue << id;
+		contact->contacttelephones = ContactTelephone::QuerySelect("ContactID = " + QString::number(id));
+		contact->contactemails = ContactEmail::QuerySelect("ContactID = " + QString::number(id));
+		contact->bankaccounts = BankAccount::QuerySelect("ContactID = " + QString::number(id));
+	}
+	return contact;
+}
+
+Contact* Contact::GetSecure(const QString &name) {
+	Contact* contact = new Contact();
+	if(!name.isEmpty()) {
+		QVariantList values;
+		values << name;
+
+		QSqlQuery query = ErpModel::GetInstance()->execPreparedQuery(
+			"SELECT * FROM Contact WHERE Name = ?",
+			values
+		);
+
+		while (query.next()) {
+			contact = new Contact(
+				query.value(0).toInt(), query.value(1).toString(), query.value(2).toString(),
+				query.value(3).toDate(), query.value(4).toInt(), query.value(5).toInt(),
+				query.value(6).toInt(), query.value(7).toString(), query.value(8).toString(),
+				query.value(9).toString(), query.value(10).toInt(), query.value(11).toInt(),
+				query.value(12).toString(), query.value(13).toString(),
+				query.value(14).toString(), query.value(15).toString()
+			);
+		}
+
+		contact->contacttelephones = ContactTelephone::QuerySelect("ContactID = " + QString::number(contact->ContactID));
+		contact->contactemails = ContactEmail::QuerySelect("ContactID = " + QString::number(contact->ContactID));
+		contact->bankaccounts = BankAccount::QuerySelect("ContactID = " + QString::number(contact->ContactID));
+	}
+	return contact;
+}
+
+QList<Contact*> Contact::SearchSecure(const QString &keyword) {
+	QList<Contact*> list;
+	if(!keyword.isEmpty()) {
+		QString likePattern = "%" + keyword + "%";
+		QVariantList values;
+		for(int i = 0; i < 9; i++) {
+			values << likePattern;
+		}
+
+		QSqlQuery query = ErpModel::GetInstance()->execPreparedQuery(
+			"SELECT * FROM Contact WHERE "
+			"Name LIKE ? OR Salutation LIKE ? OR Address LIKE ? OR "
+			"PostalCode LIKE ? OR City LIKE ? OR Website LIKE ? OR "
+			"TaxNumber LIKE ? OR CreatedOn LIKE ? OR EditedOn LIKE ?",
+			values
+		);
+
+		while (query.next()) {
+			list.append(new Contact(
+				query.value(0).toInt(), query.value(1).toString(), query.value(2).toString(),
+				query.value(3).toDate(), query.value(4).toInt(), query.value(5).toInt(),
+				query.value(6).toInt(), query.value(7).toString(), query.value(8).toString(),
+				query.value(9).toString(), query.value(10).toInt(), query.value(11).toInt(),
+				query.value(12).toString(), query.value(13).toString(),
+				query.value(14).toString(), query.value(15).toString()
+			));
+		}
+	}
+	return list;
+}
+
+bool Contact::removeSecure() {
+	if(ContactID != 0) {
+		QVariantList values;
+		values << ContactID;
+
+		ErpModel::GetInstance()->execPreparedQuery(
+			"DELETE FROM Contact WHERE ContactID = ?",
+			values
+		);
+		return true;
+	}
+	return false;
+}
+

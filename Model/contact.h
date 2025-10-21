@@ -59,6 +59,12 @@ public:
 	void refresh();
 	bool remove(const QModelIndex &index);
 
+	bool saveSecure();
+	static Contact* GetSecure(int id);
+	static Contact* GetSecure(const QString &name);
+	static QList<Contact*> SearchSecure(const QString &keyword);
+	bool removeSecure();
+
 private:
 	Contact(int ContactID,QString Name,QString Salutation,QDate BirthdateOrDateOfFoundation,int ContactTypeID,int ContactClassID,int Serial,QString Address,QString PostalCode,QString City,int CountryID,int ContactStatusID,QString Website,QString TaxNumber,QString CreatedOn,QString EditedOn);	static Contact* p_instance;
 	bool setName(int ContactID, const QString &Name);
