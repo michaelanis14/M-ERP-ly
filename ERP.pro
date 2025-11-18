@@ -30,6 +30,8 @@ SOURCES += main.cpp \
 	displays/CommonUI/ean13.cpp  \
 	displays/CommonUI/erptableview.cpp  \
 	Model/erpmodel.cpp \
+	Model/inputvalidator.cpp \
+	Model/errorlogger.cpp \
 	Model/invoicestoreproduct.cpp \
 	Model/invoiceservice.cpp \
 	Model/access.cpp \
@@ -252,6 +254,8 @@ HEADERS += displays/mainwindow.h \	erpdisplay.h \
 	displays/CommonUI/ean13.h  \
 	displays/CommonUI/erptableview.h  \
 	Model/erpmodel.h \
+	Model/inputvalidator.h \
+	Model/errorlogger.h \
 	Model/invoicestoreproduct.h \
 	Model/invoiceservice.h \
 	Model/access.h \

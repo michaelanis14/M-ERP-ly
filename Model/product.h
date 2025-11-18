@@ -53,6 +53,12 @@ public:
 	void refresh();
 	bool remove(const QModelIndex &index);
 
+	bool saveSecure();
+	static Product* GetSecure(int id);
+	static Product* GetSecure(const QString &name);
+	static QList<Product*> SearchSecure(const QString &keyword);
+	bool removeSecure();
+
 private:
 	Product(int ProductID,QString Name,QString ShortDescription,int UnitID,double SellingPrice,double NetCoast,double TradeMarginRate,int TaxID,QString information,QString Barcode,int ProductCategoryID,double CriticalAmount,QString CreatedOn,QString EditedOn);	static Product* p_instance;
 	bool setName(int ProductID, const QString &Name);

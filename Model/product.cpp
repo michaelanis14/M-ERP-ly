@@ -452,3 +452,146 @@ qDebug() << query.lastError().text();
 return true;
 }
 
+bool Product::saveSecure() {
+	this->EditedOn = QDate::currentDate().toString();
+
+	if(ProductID == 0) {
+		this->CreatedOn = QDate::currentDate().toString();
+
+		QVariantList values;
+		values << Name << ShortDescription << UnitID << SellingPrice << NetCoast
+		       << TradeMarginRate << TaxID << information << Barcode
+		       << ProductCategoryID << CriticalAmount << CreatedOn << EditedOn;
+
+		QSqlQuery insertQuery = ErpModel::GetInstance()->execPreparedQuery(
+			"INSERT INTO Product (Name, ShortDescription, UnitID, SellingPrice, NetCoast, "
+			"TradeMarginRate, TaxID, information, Barcode, ProductCategoryID, CriticalAmount, "
+			"CreatedOn, EditedOn) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+			values
+		);
+
+		QVariantList selectValues;
+		selectValues << Name << EditedOn;
+		QSqlQuery query = ErpModel::GetInstance()->execPreparedQuery(
+			"SELECT ProductID FROM Product WHERE Name = ? AND EditedOn = ?",
+			selectValues
+		);
+
+		while (query.next()) {
+			if(query.value(0).toInt() != 0){
+				this->ProductID = query.value(0).toInt();
+			}
+		}
+	} else {
+		QVariantList values;
+		values << Name << ShortDescription << UnitID << SellingPrice << NetCoast
+		       << TradeMarginRate << TaxID << information << Barcode
+		       << ProductCategoryID << CriticalAmount << CreatedOn << EditedOn << ProductID;
+
+		ErpModel::GetInstance()->execPreparedQuery(
+			"UPDATE Product SET Name = ?, ShortDescription = ?, UnitID = ?, SellingPrice = ?, "
+			"NetCoast = ?, TradeMarginRate = ?, TaxID = ?, information = ?, Barcode = ?, "
+			"ProductCategoryID = ?, CriticalAmount = ?, CreatedOn = ?, EditedOn = ? "
+			"WHERE ProductID = ?",
+			values
+		);
+	}
+
+	return true;
+}
+
+Product* Product::GetSecure(int id) {
+	Product* product = new Product();
+	if(id != 0) {
+		QVariantList values;
+		values << id;
+
+		QSqlQuery query = ErpModel::GetInstance()->execPreparedQuery(
+			"SELECT * FROM Product WHERE ProductID = ? ORDER BY ProductID ASC",
+			values
+		);
+
+		while (query.next()) {
+			product = new Product(
+				query.value(0).toInt(), query.value(1).toString(), query.value(2).toString(),
+				query.value(3).toInt(), query.value(4).toDouble(), query.value(5).toDouble(),
+				query.value(6).toDouble(), query.value(7).toInt(), query.value(8).toString(),
+				query.value(9).toString(), query.value(10).toInt(), query.value(11).toDouble(),
+				query.value(12).toString(), query.value(13).toString()
+			);
+		}
+
+		product->productimages = ProductImage::QuerySelect("ProductID = " + QString::number(id));
+	}
+	return product;
+}
+
+Product* Product::GetSecure(const QString &name) {
+	Product* product = new Product();
+	if(!name.isEmpty()) {
+		QVariantList values;
+		values << name;
+
+		QSqlQuery query = ErpModel::GetInstance()->execPreparedQuery(
+			"SELECT * FROM Product WHERE Name = ?",
+			values
+		);
+
+		while (query.next()) {
+			product = new Product(
+				query.value(0).toInt(), query.value(1).toString(), query.value(2).toString(),
+				query.value(3).toInt(), query.value(4).toDouble(), query.value(5).toDouble(),
+				query.value(6).toDouble(), query.value(7).toInt(), query.value(8).toString(),
+				query.value(9).toString(), query.value(10).toInt(), query.value(11).toDouble(),
+				query.value(12).toString(), query.value(13).toString()
+			);
+		}
+
+		product->productimages = ProductImage::QuerySelect("ProductID = " + QString::number(product->ProductID));
+	}
+	return product;
+}
+
+QList<Product*> Product::SearchSecure(const QString &keyword) {
+	QList<Product*> list;
+	if(!keyword.isEmpty()) {
+		QString likePattern = "%" + keyword + "%";
+		QVariantList values;
+		for(int i = 0; i < 6; i++) {
+			values << likePattern;
+		}
+
+		QSqlQuery query = ErpModel::GetInstance()->execPreparedQuery(
+			"SELECT * FROM Product WHERE "
+			"Name LIKE ? OR ShortDescription LIKE ? OR information LIKE ? OR "
+			"Barcode LIKE ? OR CreatedOn LIKE ? OR EditedOn LIKE ?",
+			values
+		);
+
+		while (query.next()) {
+			list.append(new Product(
+				query.value(0).toInt(), query.value(1).toString(), query.value(2).toString(),
+				query.value(3).toInt(), query.value(4).toDouble(), query.value(5).toDouble(),
+				query.value(6).toDouble(), query.value(7).toInt(), query.value(8).toString(),
+				query.value(9).toString(), query.value(10).toInt(), query.value(11).toDouble(),
+				query.value(12).toString(), query.value(13).toString()
+			));
+		}
+	}
+	return list;
+}
+
+bool Product::removeSecure() {
+	if(ProductID != 0) {
+		QVariantList values;
+		values << ProductID;
+
+		ErpModel::GetInstance()->execPreparedQuery(
+			"DELETE FROM Product WHERE ProductID = ?",
+			values
+		);
+		return true;
+	}
+	return false;
+}
+
